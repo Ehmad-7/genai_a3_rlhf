@@ -1,0 +1,15 @@
+logprobs shape: (4, 480) | mask shape: (4, 480)
+
+[0] masked tokens decoded: ' Me and my sister were going to the park, put my sister in her carseat, left her there for thirty minutes, mom saved her from my ignorance, got grounded for a month.<|endoftext|>'
+[0] mask sum = 39 | summary tokens (with EOS) = 39
+
+[1] masked tokens decoded: " I started dating my friends ex after he told me he was ok with it, but then he decided he wasn't and we're no longer friends. Am I in the wrong here and what can I do to make it right?<|endoftext|>"
+[1] mask sum = 47 | summary tokens (with EOS) = 47
+
+[2] masked tokens decoded: " GF has been liking a bunch of images of a shirtless/almost naked guy she knows on instagram, I think it's disrespectful and want to know if I'm overreacting/how to talk to her.<|endoftext|>"
+[2] mask sum = 47 | summary tokens (with EOS) = 47
+
+[3] masked tokens decoded: ' I come from a family who is well-off and my co-workers found out so now they make constantly pick on me.<|endoftext|>'
+[3] mask sum = 27 | summary tokens (with EOS) = 27
+
+All checks passed: mask is 1 exactly on summary tokens (+ EOS).
