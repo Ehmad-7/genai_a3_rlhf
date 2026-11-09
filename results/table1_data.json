@@ -1,0 +1,11 @@
+{
+  "sft_train": 20000,
+  "sft_val": 500,
+  "pref_train": 20000,
+  "pref_val": 1000,
+  "eval_posts": 300,
+  "prompt_len_mean": 317.4,
+  "prompt_len_max": 448,
+  "summary_len_mean": 33.8,
+  "summary_len_max": 48
+}
