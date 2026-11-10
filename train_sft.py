@@ -21,6 +21,16 @@ def sft_loss_parts(model, batch, device):
     mask = summary_mask(am, batch["prompt_lens"]).to(lp.dtype)
     return -(lp * mask).sum(), mask.sum()
 
+def split_batch(batch, n):
+    """Batch ko n-n rows ke micro-batches mein todta hai aur har ek se
+    faltu right-padding hata deta hai (memory bachane ke liye)."""
+    B = batch["input_ids"].shape[0]
+    for i in range(0, B, n):
+        mb = {k: v[i:i + n] for k, v in batch.items()}
+        Lc = int(mb["attention_mask"].sum(1).max())
+        mb["input_ids"] = mb["input_ids"][:, :Lc]
+        mb["attention_mask"] = mb["attention_mask"][:, :Lc]
+        yield mb
 
 @torch.no_grad()
 def validate(model, loader, device):
@@ -54,6 +64,7 @@ def main():
     ap.add_argument("--val_limit", type=int, default=0)   # smoke test ke liye
     ap.add_argument("--log_path", default="results/sft_log.json")
     ap.add_argument("--samples_path", default="results/sft_samples.json")
+    ap.add_argument("--micro_bs", type=int, default=4)
     args = ap.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -78,7 +89,7 @@ def main():
         collate_fn=partial(collate_sft, pad_id=pad),
         generator=torch.Generator().manual_seed(SEED))
     val_loader = DataLoader(
-        val, batch_size=16, shuffle=False,
+        val, batch_size=8, shuffle=False,
         collate_fn=partial(collate_sft, pad_id=pad))
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
@@ -95,16 +106,21 @@ def main():
     pbar = tqdm(train_loader, total=args.max_steps or len(train_loader))
     for batch in pbar:
         step += 1
-        s, c = sft_loss_parts(model, batch, device)
-        loss = s / c                                   # mean NLL over summary tokens
-        opt.zero_grad()
-        loss.backward()
+        
+        # poore batch (16) ke summary tokens, taake loss poore batch par mean ho
+        total_tokens = summary_mask(batch["attention_mask"], batch["prompt_lens"]).sum().item()
+        opt.zero_grad(set_to_none=True)
+        loss_val = 0.0
+        for mb in split_batch(batch, args.micro_bs):
+            s, _ = sft_loss_parts(model, mb, device)
+            (s / total_tokens).backward()          # gradients jama hote jaate hain
+            loss_val += s.item() / total_tokens
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        opt.step()
+        opt.step()                                 # ek hi step poore batch ke liye
 
-        log["step_train_loss"].append(loss.item())
-        pbar.set_description(f"loss {loss.item():.4f}")
-
+        log["step_train_loss"].append(loss_val)
+        pbar.set_description(f"loss {loss_val:.4f}")
+        
         if step % args.log_every == 0:
             recent = log["step_train_loss"][-args.log_every:]
             tr = sum(recent) / len(recent)
