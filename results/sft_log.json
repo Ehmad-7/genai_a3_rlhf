@@ -1,0 +1,15 @@
+{
+  "note": "Reconstructed from console output after Colab runtime disconnect; per-step train loss was lost. train_loss = mean of the preceding 250 steps.",
+  "gpu": "T4",
+  "evals": [
+    {"step": 0,    "train_loss": null,   "val_loss": 2.7998},
+    {"step": 250,  "train_loss": 2.5264, "val_loss": 2.4878},
+    {"step": 500,  "train_loss": 2.4668, "val_loss": 2.4687},
+    {"step": 750,  "train_loss": 2.4338, "val_loss": 2.4573},
+    {"step": 1000, "train_loss": 2.4477, "val_loss": 2.4496},
+    {"step": 1250, "train_loss": 2.4316, "val_loss": 2.4434}
+  ],
+  "train_time_sec": 3779,
+  "final_train_loss": 2.4316,
+  "final_val_loss": 2.4434
+}
