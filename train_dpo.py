@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from itertools import islice
 
 from config import SEED
 from models import load_tokenizer, load_causal_lm
@@ -34,6 +35,12 @@ def seq_logps(model, ids, mask, pl):
     m = summary_mask(mask, pl).to(lp.dtype)
     return (lp * m).sum(dim=1)
 
+def save_ckpt(path, policy, opt, step, log):
+    os.makedirs(path, exist_ok=True)
+    tmp = f"{path}/state.pt.tmp"
+    torch.save({"policy": policy.state_dict(), "opt": opt.state_dict(),
+                "step": step, "log": log}, tmp)
+    os.replace(tmp, f"{path}/state.pt")     # half-written file kabhi final nahi banti
 
 @torch.no_grad()
 def evaluate(policy, ref, val, pad_id, device, micro_bs, beta, cache):
@@ -73,6 +80,8 @@ def main():
     ap.add_argument("--val_limit", type=int, default=0)   # smoke test
     ap.add_argument("--log_path", default="results/dpo_log.json")
     ap.add_argument("--scores_path", default="results/dpo_val_scores.json")
+    ap.add_argument("--ckpt_dir", default="checkpoints/dpo_ckpt")
+    ap.add_argument("--resume", action="store_true")
     args = ap.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -101,14 +110,24 @@ def main():
     log = {"device": device,
            "gpu": torch.cuda.get_device_name(0) if device == "cuda" else "cpu",
            "step_train_loss": [], "step_train_acc": [], "evals": []}
+    start, prev_elapsed = 0, 0.0
+    if args.resume and os.path.exists(f"{args.ckpt_dir}/state.pt"):
+        s = torch.load(f"{args.ckpt_dir}/state.pt", map_location="cpu")
+        policy.load_state_dict(s["policy"])
+        opt.load_state_dict(s["opt"])
+        start, log = s["step"], s["log"]
+        prev_elapsed = log.get("elapsed_before", 0.0)
+        print(f"RESUMED from step {start}")
     cache = {}
-    a0, l0, _ = evaluate(policy, ref, val, pad, device, args.micro_bs, args.beta, cache)
-    log["evals"].append({"step": 0, "train_loss": None, "train_acc": None,
-                         "val_acc": a0, "val_loss": l0})
-    print(f"step 0 | val_acc {a0:.4f} | val_loss {l0:.4f}")
+    if start == 0:
+        a0, l0, _ = evaluate(policy, ref, val, pad, device, args.micro_bs, args.beta, cache)
+        log["evals"].append({"step": 0, "train_loss": None, "train_acc": None,
+                             "val_acc": a0, "val_loss": l0})
+        print(f"step 0 | val_acc {a0:.4f} | val_loss {l0:.4f}")
 
-    t0, step = time.time(), 0
-    pbar = tqdm(loader, total=args.max_steps or len(loader))
+    t0, step = time.time(), start
+    pbar = tqdm(islice(loader, start, None), total=args.max_steps or len(loader),initial=start)
+
     for batch in pbar:
         step += 1
         B = batch["chosen_ids"].shape[0]
@@ -141,10 +160,12 @@ def main():
             log["evals"].append({"step": step, "train_loss": tr, "train_acc": ta,
                                  "val_acc": va, "val_loss": vl})
             print(f"step {step} | train_loss {tr:.4f} train_acc {ta:.3f} | val_acc {va:.4f} val_loss {vl:.4f}")
+            log["elapsed_before"] = prev_elapsed + (time.time() - t0)
+            save_ckpt(args.ckpt_dir, policy, opt, step, log)
         if args.max_steps and step >= args.max_steps:
             break
 
-    log["train_time_sec"] = time.time() - t0
+    log["train_time_sec"] = prev_elapsed + time.time() - t0
     policy.save_pretrained(args.out)
     tok.save_pretrained(args.out)
 
