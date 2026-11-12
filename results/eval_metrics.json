@@ -1,0 +1,26 @@
+{
+  "sft": {
+    "mean_reward": 4.606432150105635,
+    "win_rate_vs_sft": null,
+    "kl_to_sft": 0.0,
+    "length": 30.543333333333333,
+    "rouge_l": 0.25335073527448626,
+    "n_posts": 300
+  },
+  "ppo": {
+    "mean_reward": 6.145434848840038,
+    "win_rate_vs_sft": 0.8533333333333334,
+    "kl_to_sft": 5.2773427098989485,
+    "length": 33.31,
+    "rouge_l": 0.21094056752648543,
+    "n_posts": 300
+  },
+  "dpo": {
+    "mean_reward": 3.602808257515232,
+    "win_rate_vs_sft": 0.38,
+    "kl_to_sft": 3.0977875876426695,
+    "length": 45.24,
+    "rouge_l": 0.23073235529242264,
+    "n_posts": 300
+  }
+}
