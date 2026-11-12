@@ -162,6 +162,12 @@ def main():
 
     order = list(range(len(sft_train)))
     random.Random(SEED).shuffle(order)                         # har iteration ke naye 16 prompts
+    if start == 0:
+        with torch.no_grad():
+            ro0 = rollout(policy, vhead, ref, rm, tok,
+                          [sft_train[i] for i in order[:args.n_prompts]], args.micro_bs, device)
+            vhead.bias.fill_(ro0["R"][ro0["mask"]].mean().item())
+        print("value head bias initialised to mean return:", round(vhead.bias.item(), 3))
     t0 = time.time()
     for it in tqdm(range(start, args.iters), initial=start, total=args.iters):
         ti = time.time()
