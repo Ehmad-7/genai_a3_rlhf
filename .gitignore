@@ -6,4 +6,4 @@ __pycache__/
 *.bin
 .ipynb_checkpoints/
 wandb/
-.env
+.envresults/human_eval_key.json
