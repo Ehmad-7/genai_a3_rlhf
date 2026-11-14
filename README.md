@@ -16,7 +16,7 @@ No RLHF library is used: no `trl`, `peft`, `trlx`, OpenRLHF, DeepSpeed-Chat, Hug
 **Links**
 
 - Medium blog: https://medium.com/@ahmadarshad.official/rebuilding-rlhf-on-a-135m-parameter-model-when-a-higher-reward-is-not-a-better-summary-17e9c6fbc433
-- LinkedIn post:[ `<add link after publishing](https://lnkd.in/p/dgftYFP7)>`
+- LinkedIn post:https://lnkd.in/p/dgftYFP7
 - Checkpoints (not stored in git):
   - SFT: https://huggingface.co/ehmad7/genai-a3-sft
   - Reward model: https://huggingface.co/ehmad7/genai-a3-reward
