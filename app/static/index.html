@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compare SFT, PPO and DPO summaries</title>
+<style>
+  :root {
+    --ground: #eef1f4;
+    --panel: #ffffff;
+    --ink: #14213d;
+    --muted: #55657d;
+    --rule: #c8d0db;
+    --accent: #0f766e;
+    --warn: #8f5206;
+    --focus: #1d4ed8;
+    --ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --text: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #10151c;
+      --panel: #171e28;
+      --ink: #e6ebf2;
+      --muted: #9aa8bb;
+      --rule: #2c3747;
+      --accent: #4fd1c5;
+      --warn: #f0b35a;
+      --focus: #8fb3ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font: 16px/1.5 var(--ui);
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 32px 20px 56px; }
+  h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .lead { margin: 0 0 24px; color: var(--muted); max-width: 64ch; }
+
+  .input { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 18px; }
+  .row { display: grid; grid-template-columns: 180px 1fr; gap: 12px; margin-bottom: 12px; }
+  label { display: block; font-size: 0.875rem; color: var(--muted); margin-bottom: 4px; }
+  input, textarea {
+    width: 100%;
+    font: inherit;
+    color: var(--ink);
+    background: var(--ground);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 8px 10px;
+  }
+  textarea { min-height: 180px; resize: vertical; font-family: var(--text); line-height: 1.5; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+  button {
+    font: inherit;
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: 1px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  button.primary { background: var(--ink); color: var(--panel); }
+  button:disabled { opacity: 0.55; cursor: progress; }
+  .hint { color: var(--muted); font-size: 0.875rem; }
+  #notice { margin: 12px 0 0; font-size: 0.875rem; color: var(--warn); min-height: 1.3em; }
+
+  .results {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+  }
+  .col { padding: 18px; border-left: 1px solid var(--rule); min-width: 0; }
+  .col:first-child { border-left: 0; }
+  .col h2 { font-size: 1.1rem; margin: 0; }
+  .col .role { margin: 2px 0 14px; font-size: 0.875rem; color: var(--muted); }
+  .summary { font: 1.1rem/1.55 var(--text); min-height: 7.5em; overflow-wrap: anywhere; }
+  .summary.idle { color: var(--muted); font-family: var(--ui); font-size: 0.95rem; }
+  .score { margin-top: 14px; border-top: 1px solid var(--rule); padding-top: 12px; }
+  .score .num { font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .score .name { font-size: 0.875rem; color: var(--muted); }
+  .bar { height: 6px; background: var(--ground); border: 1px solid var(--rule); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 0; background: var(--accent); }
+  .meta { margin-top: 10px; font-size: 0.875rem; color: var(--muted); }
+  .meta .cut { color: var(--warn); font-weight: 600; }
+
+  .foot { margin-top: 20px; color: var(--muted); font-size: 0.875rem; max-width: 80ch; }
+
+  @media (max-width: 860px) {
+    .results { grid-template-columns: 1fr; }
+    .col { border-left: 0; border-top: 1px solid var(--rule); }
+    .col:first-child { border-top: 0; }
+    .row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Compare three summarisers</h1>
+  <p class="lead">Paste a Reddit post. The SFT, PPO and DPO models each write a one-sentence summary, and a separate reward model scores every summary.</p>
+
+  <section class="input" aria-label="Post input">
+    <div class="row">
+      <div>
+        <label for="subreddit">Subreddit</label>
+        <input id="subreddit" value="relationships" autocomplete="off">
+      </div>
+      <div>
+        <label for="title">Title</label>
+        <input id="title" autocomplete="off">
+      </div>
+    </div>
+    <label for="post">Post</label>
+    <textarea id="post" placeholder="Paste the body of the post here"></textarea>
+    <div class="actions">
+      <button id="go" class="primary" type="button">Summarise</button>
+      <button id="example" type="button">Fill in an example</button>
+      <button id="clear" type="button">Clear</button>
+      <span class="hint">The models run one after another, so the first result appears first.</span>
+    </div>
+    <p id="notice" role="status"></p>
+  </section>
+
+  <section class="results" aria-label="Summaries">
+    <div class="col" id="col-sft"></div>
+    <div class="col" id="col-ppo"></div>
+    <div class="col" id="col-dpo"></div>
+  </section>
+
+  <p class="foot">The score comes from my own reward model, which picks the human-preferred summary on 64.7% of validation pairs and tends to favour longer summaries. A higher score does not always mean a better summary. A summary marked "cut off" reached the 48-token limit before the model finished. The bar spans scores from -2 to 10.</p>
+</main>
+
+<script>
+const POLICIES = [
+  { id: "sft", name: "SFT", role: "Fine-tuned to copy human-written summaries" },
+  { id: "ppo", name: "PPO", role: "Optimised against the reward model" },
+  { id: "dpo", name: "DPO", role: "Trained directly on human preference pairs" },
+];
+
+const EXAMPLE = {
+  subreddit: "relationships",
+  title: "My roommate keeps eating my food and says it is a joke",
+  post: "I (24F) share a flat with my roommate (25F). For about three months she has been eating my groceries without asking: yogurt, leftovers I cooked for lunch, even a cake I bought for my sister's birthday. When I bring it up she laughs and says I am being dramatic and that she will pay me back, but she never does. I labelled my shelf in the fridge and that did not help. I do not want to fall out with her because we get along otherwise and the lease runs for another eight months. I have thought about buying a small fridge for my room, but that feels like admitting defeat. How do I make her stop without turning this into a fight?",
+};
+
+const els = {
+  go: document.getElementById("go"),
+  sub: document.getElementById("subreddit"),
+  title: document.getElementById("title"),
+  post: document.getElementById("post"),
+  notice: document.getElementById("notice"),
+};
+
+function buildColumns() {
+  for (const p of POLICIES) {
+    const col = document.getElementById("col-" + p.id);
+    col.innerHTML = "";
+    const h = document.createElement("h2"); h.textContent = p.name;
+    const role = document.createElement("p"); role.className = "role"; role.textContent = p.role;
+    const sum = document.createElement("div"); sum.className = "summary idle"; sum.id = "sum-" + p.id; sum.setAttribute("aria-live", "polite");
+    sum.textContent = "The summary will appear here.";
+    const score = document.createElement("div"); score.className = "score";
+    const num = document.createElement("div"); num.className = "num"; num.id = "num-" + p.id; num.textContent = "-";
+    const nm = document.createElement("div"); nm.className = "name"; nm.textContent = "Reward-model score";
+    const bar = document.createElement("div"); bar.className = "bar";
+    const fill = document.createElement("span"); fill.id = "bar-" + p.id; bar.appendChild(fill);
+    score.append(num, nm, bar);
+    const meta = document.createElement("div"); meta.className = "meta"; meta.id = "meta-" + p.id;
+    col.append(h, role, sum, score, meta);
+  }
+}
+
+function setState(id, text) {
+  const s = document.getElementById("sum-" + id);
+  s.className = "summary idle";
+  s.textContent = text;
+  document.getElementById("num-" + id).textContent = "-";
+  document.getElementById("bar-" + id).style.width = "0";
+  document.getElementById("meta-" + id).textContent = "";
+}
+
+function showResult(id, r) {
+  const s = document.getElementById("sum-" + id);
+  s.className = "summary";
+  s.textContent = r.summary || "(empty summary)";
+  document.getElementById("num-" + id).textContent = r.reward.toFixed(2);
+  const pct = Math.max(0, Math.min(100, ((r.reward + 2) / 12) * 100));
+  document.getElementById("bar-" + id).style.width = pct + "%";
+  const meta = document.getElementById("meta-" + id);
+  meta.textContent = r.tokens + " tokens, " + r.seconds + " s";
+  if (!r.finished) {
+    const cut = document.createElement("span");
+    cut.className = "cut";
+    cut.textContent = " Cut off at the token limit";
+    meta.append(" ", cut);
+  }
+}
+
+async function summarise() {
+  const post = els.post.value.trim();
+  els.notice.textContent = "";
+  if (!post) { els.notice.textContent = "Paste a post first."; els.post.focus(); return; }
+  els.go.disabled = true;
+  els.go.textContent = "Summarising";
+  for (const p of POLICIES) setState(p.id, "Waiting for its turn");
+  for (const p of POLICIES) {
+    setState(p.id, "Writing a summary");
+    try {
+      const res = await fetch("/api/summarise", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ policy: p.id, post, subreddit: els.sub.value, title: els.title.value }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || ("Request failed with status " + res.status));
+      showResult(p.id, data);
+      if (data.input_truncated) {
+        els.notice.textContent = "The post was cut to its first " + data.input_tokens + " tokens, the longest the models saw in training.";
+      }
+    } catch (e) {
+      setState(p.id, "This model could not answer: " + e.message);
+    }
+  }
+  els.go.disabled = false;
+  els.go.textContent = "Summarise";
+}
+
+document.getElementById("go").addEventListener("click", summarise);
+document.getElementById("example").addEventListener("click", () => {
+  els.sub.value = EXAMPLE.subreddit; els.title.value = EXAMPLE.title; els.post.value = EXAMPLE.post;
+});
+document.getElementById("clear").addEventListener("click", () => {
+  els.title.value = ""; els.post.value = ""; els.notice.textContent = "";
+  for (const p of POLICIES) setState(p.id, "The summary will appear here.");
+});
+
+buildColumns();
+</script>
+</body>
+</html>
